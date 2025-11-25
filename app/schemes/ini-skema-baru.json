@@ -1,0 +1,19 @@
+{
+    "lab_id": "ini-skema-baru",
+    "criteria": [
+        {
+            "type": "user",
+            "key": "sila",
+            "expected": "exists",
+            "description": "cek user sila",
+            "score": 50.0
+        },
+        {
+            "type": "user",
+            "key": "upin",
+            "expected": "exists",
+            "description": "cek user ipin",
+            "score": 50.0
+        }
+    ]
+}

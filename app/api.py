@@ -24,13 +24,15 @@ def validate_content_type():
 def register():
     try:
         data = request.json
+        name = data.get("name")
+        group_name = data.get("group_name")
         username = data.get("username")
         password = data.get("password")
         class_name = data.get("class_name")
 
         # Validasi input
-        if not username or not password or not class_name:
-            return jsonify({"error": "Username, password, and class_name are required"}), 400
+        if not username or not password or not name or not class_name or not group_name:
+            return jsonify({"error": "Username, password, name, class_name, and group_name are required"}), 400
 
         # Cek apakah username sudah ada
         existing_user = db_session.query(User).filter(User.username == username).first()
@@ -38,7 +40,7 @@ def register():
             return jsonify({"error": "Username already exists"}), 400
 
         # Buat user baru
-        new_user = User(username=username, password=password, class_name=class_name)
+        new_user = User(name=name, group_name=group_name, username=username, password=password, class_name=class_name)
         db_session.add(new_user)
         db_session.commit()
 
@@ -170,19 +172,17 @@ def grade_lab():
             return jsonify({"error": "Invalid request data"}), 400
 
         lab_id = data.get("lab_id")
-        class_name = data.get("class_name")  # Ambil class_name dari payload
+        class_name = data.get("class_name")
         client_data = data.get("client_data", {})
 
-        lab_log_path = f"/var/log/nusactl/labs/{lab_id}.log"
+        lab_log_path = f"/var/log/gradingctl/labs/{lab_id}.log"
         os.makedirs(os.path.dirname(lab_log_path), exist_ok=True)
 
-        if not lab_id or not class_name:  # Pastikan lab_id dan class_name ada
+        if not lab_id or not class_name:
             return jsonify({"error": "lab_id and class_name are required"}), 400
 
-        # Ambil username dari token (format: dummy-token-username-class)
-        username = token.split("-")[2]  # Ambil bagian ketiga setelah split
+        username = token.split("-")[2]
 
-        # Debugging: Cetak username dan class_name
         print(f"Username: {username}, Class Name: {class_name}")
 
         if not isinstance(client_data, dict):
@@ -202,7 +202,7 @@ def grade_lab():
         total_score = 0
         feedback = []
 
-        # Proses setiap kriteria dalam skema
+        # ========== UPDATE: Cek kelulusan case dengan fail detection, ========== #
         for criterion in scheme.get("criteria", []):
             ctype = criterion.get("type")
             key = criterion.get("key")
@@ -210,122 +210,113 @@ def grade_lab():
             description = criterion.get("description")
             score = criterion.get("score", 0)
 
-            actual_value = client_data.get(key, "")
+            actual_value = client_data.get(key, None)
 
-            # Logika evaluasi kriteria
-            if ctype == "command":
-                if expected and actual_value and expected.lower() in actual_value.lower():
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+            failed = False
+            # Jika tidak isi/jawaban kosong
+            if actual_value is None or actual_value == "":
+                failed = True
+            elif ctype == "command":
+                if not (expected and actual_value and expected.lower() in str(actual_value).lower()):
+                    failed = True
             elif ctype == "file_exists":
-                if expected == "deleted" and actual_value == "deleted":
-                    total_score += score
-                elif expected == "exists" and actual_value == "exists":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
             elif ctype == "file_content":
                 contains = criterion.get("contains")
-                if contains and contains in actual_value:
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if not (contains and contains in str(actual_value)):
+                    failed = True
             elif ctype == "service":
-                if expected == "active" and actual_value == "active":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
             elif ctype == "directory":
-                if expected == "exists" and actual_value == "exists":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
             elif ctype == "config_check":
-                if expected and actual_value == "correct":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if not (expected and str(actual_value) == "correct"):
+                    failed = True
             elif ctype == "package":
-                if expected == "installed" and actual_value == "installed":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
             elif ctype == "user":
-                if expected == "exists" and actual_value == "exists":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
             elif ctype == "group":
-                if expected == "exists" and actual_value == "exists":
-                    total_score += score
-                else:
-                    feedback.append(f"{description}: Failed")
-                    with open(lab_log_path, 'a') as logfile:
-                        logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
+                if expected != str(actual_value):
+                    failed = True
+            # (tambah lain jika perlu)
+            # ----- end logika fail -----
+
+            if not failed:
+                total_score += score
             else:
-                feedback.append(f"Unsupported criterion type: {ctype}")
+                feedback.append(f"{description}: Failed")
+                with open(lab_log_path, 'a') as logfile:
+                    logfile.write(f"[{datetime.now(wib)}] CASE: {description} | ERROR: {actual_value}\n")
 
-        # Pastikan `total_score` dihitung dengan benar
-        print(f"Total score calculated: {total_score}")  # Debugging
+        # Setelah semua criterion, cek apakah ada yang failed
+        if any("Failed" in f for f in feedback):
+            total_score = 0
 
-        # Cobalah untuk menyimpan hasil grading ke database
+        print(f"Total score calculated: {total_score}")
+
         try:
             start_time = active_lab.get("start_time")
-            #from datetime import datetime
-            #import pytz
-            #wib = pytz.timezone("Asia/Jakarta")
             end_time = datetime.now(wib)
             duration = (end_time - start_time).total_seconds() if start_time else None
 
-            # Rubrik: pengurangan skor kalau lewat 10 menit
-            max_duration = 600  # 10 menit dalam detik
-            penalty_point = 10
+            # Penalty waktu (min 80, hanya kalau nilai > 0)
+            max_duration = 180   # 3 menit (detik)
+            penalty_percent = 5
+            min_score = 80
             penalty_messages = []
+            score_awal = total_score
 
-            if duration is not None and duration > max_duration:
-                total_score -= penalty_point
-                penalty_messages.append(f"Waktu pengerjaan lebih dari 10 menit, pengurangan {penalty_point} poin." )
-                if total_score < 0:
-                    total_score = 0
+            # Penalty hanya kalau score > 0 (artinya semua lulus)
+            if total_score > 0 and duration is not None and duration > max_duration:
+                n_penalty = int((duration - max_duration) // max_duration) + 1
+                penalty_total = n_penalty * penalty_percent
+                new_score = score_awal * (100 - penalty_total) / 100
+                if new_score < min_score:
+                    new_score = min_score
+                total_score = new_score
+                penalty_messages.append(
+                    f"Waktu pengerjaan melebihi 3 menit, pengurangan {penalty_percent}% per 3 menit. Nilai akhir: {new_score:.2f}"
+                )
 
-            grading_result = GradingResult(
-                username=username,  # Hanya username
-                class_name=class_name,  # class_name terpisah
-                lab_id=lab_id,
-                score=total_score,
-                feedback=", ".join(feedback),
-		duration=duration,
-		status="done"
-            )
-            db_session.add(grading_result)
-            db_session.commit()  # Commit transaksi
-            print(f"Data saved to database: {grading_result.username}, {grading_result.class_name}, {grading_result.lab_id}, {grading_result.score}")  # Debugging
+            # Ambil info user dari database
+            user_info = db_session.query(User).filter_by(username=username).first()
+            if not user_info:
+                return jsonify({"error": "User not found"}), 404
+
+            group_name = user_info.group_name
+            class_name = user_info.class_name
+
+            # Ambil semua anggota grup yang sama
+            group_users = db_session.query(User).filter_by(class_name=class_name, group_name=group_name).all()
+
+            # Loop semua anggota, insert grading result
+            for group_user in group_users:
+                grading_result = GradingResult(
+                    username=group_user.username,
+                    class_name=class_name,
+                    lab_id=lab_id,
+                    score=total_score,
+                    feedback=", ".join(feedback),
+                    duration=duration,
+                    status="done",
+                    timestamp=datetime.now(wib)
+                )
+                db_session.add(grading_result)
+
+            db_session.commit()
+
+            print(f"Data saved for group '{group_name}': {[u.username for u in group_users]}, lab: {lab_id}, score: {total_score}")
+
         except Exception as db_error:
-            print(f"Database Error: {str(db_error)}")  # Log error, rollback database transaksi
+            print(f"Database Error: {str(db_error)}")
             db_session.rollback()
 
-            #print(f'[DEBUG] Feedback to client: {feedback} (type={type(feedback)})')
-            #print("[DEBUG] Feedback list sebelum return:", feedback)
-            #print("[DEBUG] Feedback AKHIR:", feedback, type(feedback))
-        # Nilai score tetap dikembalikan meskipun ada error pada penyimpanan database
-        #return jsonify({"score": total_score, "feedback": feedback, "log_path": lab_log_path, "duration": duration, "penalty": penalty_messages,}), 200
         return jsonify({
             "score": total_score if total_score is not None else 0,
             "feedback": feedback if isinstance(feedback, list) else [],
@@ -334,12 +325,11 @@ def grade_lab():
             "penalty": penalty_messages
         }), 200
 
-
     except json.JSONDecodeError as e:
-        print(f"JSON Decode Error: {str(e)}")  # Debugging
+        print(f"JSON Decode Error: {str(e)}")
         return jsonify({"error": "Invalid JSON format", "details": str(e)}), 400
     except Exception as e:
-        print(f"Error: {str(e)}")  # Debugging
+        print(f"Error: {str(e)}")
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 @app.route('/finish-lab', methods=['POST'])
@@ -364,6 +354,10 @@ def finish_lab():
         # Hapus lab yang aktif untuk token ini
         if token in ACTIVE_LABS and ACTIVE_LABS[token]["lab_id"] == lab_id:
             del ACTIVE_LABS[token]
+            # Tambahan: hapus file log saat lab selesai
+            lab_log_path = f"/var/log/gradingctl/labs/{lab_id}.log"
+            if os.path.exists(lab_log_path):
+                os.remove(lab_log_path)
             return jsonify({"message": f"Lab '{lab_id}' finished successfully"}), 200
         else:
             return jsonify({"error": "Lab not found or not active"}), 404
@@ -574,28 +568,45 @@ def download_results():
         if lab_id:
             query = query.filter(GradingResult.lab_id == lab_id)
 
-        results = query.all()
+        results = query.order_by(
+            GradingResult.username.asc(),
+            GradingResult.lab_id.asc(),
+            GradingResult.score.desc()).all()
 
         # Debugging: Cetak jumlah hasil query
         print(f"Number of results fetched: {len(results)}")
+
+        users = db_session.query(User).all()
+
+        best_results = {}
+        for result in results:
+            key = (result.username, result.class_name, result.lab_id)
+            # Ambil score tertinggi saja
+            if key not in best_results or result.score > best_results[key].score:
+                best_results[key] = result
+
+        final_results = list(best_results.values())
 
         # Buat file CSV dalam memori
         output = StringIO()
         writer = csv.writer(output)
 
         # Tulis header CSV
-        writer.writerow(['Username', 'Class Name', 'Lab ID', 'Score', 'Feedback', 'Timestamp'])
+        writer.writerow(['Username', 'Nama', 'Kelas', 'Kelompok', 'Lab ID', 'Score', 'Feedback', 'Timestamp'])
 
         # Tulis data ke CSV
-        for result in results:
+        for result in final_results:
+            user = next((u for u in users if u.username == result.username), None)
             writer.writerow([
                 result.username,
+                user.name if user else '',
                 result.class_name,
+                user.group_name if user else '',
                 result.lab_id,
                 result.score,
                 result.feedback,
-                result.timestamp.strftime('%Y-%m-%d %H:%M:%S')  # Format timestamp
-            ])
+                result.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        ])
 
         # Siapkan respons untuk mengunduh file CSV
         output.seek(0)
@@ -799,6 +810,28 @@ def edit_scheme_page(lab_id):
 
     return render_template("edit_scheme.html", scheme=scheme, types=types, expected=expected)
 
+@app.route('/edit_scheme/<lab_id>', methods=['POST'])
+def edit_scheme_post(lab_id):
+    try:
+        data = request.get_json()
+        criteria = data.get("criteria")
+        # Jika perlu, bisa compare lab_id dari data dan URL, tapi biasanya cukup dari URL
+        scheme = {
+            "lab_id": lab_id,
+            "criteria": criteria
+        }
+        scheme_file = os.path.join(SCHEME_PATH, f"{lab_id}.json")
+        with open(scheme_file, 'w') as f:
+            json.dump(scheme, f, indent=4)
+        # --- Update database jika perlu ---
+        existing_lab = db_session.query(Lab).filter(Lab.lab_id == lab_id).first()
+        if existing_lab:
+            existing_lab.scheme_path = scheme_file
+            db_session.commit()
+        return jsonify({"message": f"Scheme '{lab_id}' updated successfully"})
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": "Failed to edit scheme", "details": str(e)}), 500
 
 @app.route('/delete_scheme', methods=['POST'])
 def delete_scheme():
@@ -884,30 +917,12 @@ def add_scheme():
 
     return render_template('add_scheme.html', types=types, expected=expected)
 
-
-#@app.route('/add_scheme')
-#def add_scheme():
-#    expected = {"command": []}
-#    return render_template('add_scheme.html', types=types, expected=expected)
-
-#@app.route('/edit_scheme')
-#def add_scheme():
-#    expected = {"command": []}
-#    return render_template('edit_scheme.html', expected=expected)
-
-#@app.route('/add_scheme')
-#def add_scheme():
-#    expected = {
-#        'command': []
-#    }
-#    return render_template('add_scheme.html')
-
 @app.route('/get-log', methods=['GET'])
 def get_log():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     lab_id = request.args.get("lab_id")
     # Validasi token/lab jika perlu, misal: cek user, cek status lab
-    log_path = f"/var/log/nusactl/labs/{lab_id}.log"
+    log_path = f"/var/log/gradingctl/labs/{lab_id}.log"
     try:
         with open(log_path, "r") as f:
             content = f.read()

@@ -1,12 +1,11 @@
 {
-    "lab_id": "asdfaf",
+    "lab_id": "openstack-jaya",
     "criteria": [
         {
             "type": "user",
-            "key": "dfasf",
-            "description": "adsfadsf",
+            "key": "laduni",
             "expected": "exists",
-            "user": "afds",
+            "description": "cek user nama laduni",
             "score": 100.0
         }
     ]

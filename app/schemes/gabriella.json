@@ -1,18 +1,18 @@
 {
-    "lab_id": "test-user-imut",
+    "lab_id": "gabriella",
     "criteria": [
         {
             "type": "user",
-            "key": "imut",
+            "key": "cantik",
             "expected": "exists",
-            "description": "cek user imut",
+            "description": "cek coba dong",
             "score": 50
         },
         {
             "type": "user",
-            "key": "halo",
+            "key": "males",
             "expected": "exists",
-            "description": "cek uer halo",
+            "description": "cek user males",
             "score": 50
         }
     ]

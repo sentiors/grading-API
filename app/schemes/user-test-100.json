@@ -1,0 +1,12 @@
+{
+    "lab_id": "user-test-100",
+    "criteria": [
+        {
+            "type": "user",
+            "key": "junior",
+            "expected": "exists",
+            "description": "cek user dong",
+            "score": 100
+        }
+    ]
+}

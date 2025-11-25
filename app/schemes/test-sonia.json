@@ -1,11 +1,11 @@
 {
-    "lab_id": "test-gaming",
+    "lab_id": "test-sonia",
     "criteria": [
         {
             "type": "user",
-            "key": "asdfasdf",
-            "description": "asdfasdf",
+            "key": "sonia",
             "expected": "exists",
+            "description": "cek user sonia",
             "score": 100.0
         }
     ]

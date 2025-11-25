@@ -124,18 +124,17 @@
                 <!-- Daftar lab_id akan diisi oleh JavaScript -->
             </select>
             <button type="submit">Filter</button>
-            <button type="button" onclick="resetFilters()">Reset Filter</button>
         </form>
 
         <h2>Users Who Have Started Lab</h2>
         <table>
             <thead>
                 <tr>
-                    <th>Username</th>
-                    <th>Class Name</th>
+                    <th>Nama</th>
+                    <th>Kelas</th>
+                    <th>Grup</th>
                     <th>Lab ID</th>
                     <th>Score</th>
-                    <th>Feedback</th>
                     <th>Timestamp</th>
                     <th>Duration</th>
                     <th>Status</th>
@@ -145,11 +144,11 @@
             <tbody>
                 {% for result in results %}
                     <tr>
-                        <td>{{ result.username }}</td>
+                        <td>{{ users | selectattr('username', 'equalto', result.username) | map(attribute='name') | first }}</td>
                         <td>{{ result.class_name }}</td>
+                        <td>{{ users | selectattr('username', 'equalto', result.username) | map(attribute='group_name') | first }}</td>
                         <td>{{ result.lab_id }}</td>
                         <td>{{ result.score }}</td>
-                        <td>{{ result.feedback }}</td>
                         <td>{{ result.local_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
 			<td>
 			    {{ ((result.duration or 0) // 60)|int }} mins
@@ -208,14 +207,27 @@
             const response = await fetch('/get-users-and-labs');
             const data = await response.json();
 
+            console.log("users:", data.users);
+
             // Isi dropdown class_name
             const classSelect = document.getElementById('class_name');
+            const classMap = new Map(); 
+
             data.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.class_name;
-                option.textContent = user.class_name;
-                classSelect.appendChild(option);
+              // key = versi normal lowercase (untuk dedup), value = tampilan asli
+              const key = user.class_name.trim().toLowerCase();
+              if (!classMap.has(key)) classMap.set(key, user.class_name.trim());
             });
+
+            console.log("classMap:", Array.from(classMap.values()));
+
+            classMap.forEach((displayName, key) => {
+              const option = document.createElement('option');
+              option.value = displayName;       // gunakan display asli untuk value
+              option.textContent = displayName; // display asli di dropdown
+              classSelect.appendChild(option);
+            });
+
 
             // Isi dropdown lab_id
             const labSelect = document.getElementById('lab_id');

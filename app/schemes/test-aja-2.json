@@ -1,12 +1,11 @@
 {
-    "lab_id": "asfdaf",
+    "lab_id": "test-aja-2",
     "criteria": [
         {
             "type": "user",
-            "key": "adfasdf",
-            "description": "afdasf",
+            "key": "sila123456",
             "expected": "exists",
-            "user": "afdssaf",
+            "description": "cek user",
             "score": 100.0
         }
     ]

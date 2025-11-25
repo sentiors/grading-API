@@ -1,12 +1,11 @@
 {
-    "lab_id": "asdfafd",
+    "lab_id": "cek-apache-test",
     "criteria": [
         {
             "type": "package",
-            "key": "afdas",
-            "description": "asdfa",
+            "key": "apache2",
             "expected": "installed",
-            "package": "asfd",
+            "description": "cek apache",
             "score": 100.0
         }
     ]

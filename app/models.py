@@ -8,6 +8,8 @@ class User(Base):
     __tablename__ = 'users'
     username = Column(String, primary_key=True)  # Username sebagai primary key
     password = Column(String, nullable=False)    # Password untuk login
+    name = Column(String)
+    group_name = Column(String)
     class_name = Column(String, nullable=False)  # Nama kelas (enum: 10_sija1, 10_sija2, dll.)
 
 class Lab(Base):

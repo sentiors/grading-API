@@ -99,14 +99,20 @@
     </div>
     <script>
         function deleteScheme(lab_id) {
-            fetch(`/delete_scheme/${lab_id}`, {
-                method: 'DELETE'
-            }).then(response => response.json())
-              .then(data => {
-                  alert(data.message);
-                  window.location.reload();
-              });
-        }
+    	    if (confirm("Are you sure you want to delete this scheme?")) {
+                fetch('/delete_scheme', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lab_id: lab_id })
+                }).then(response => response.json())
+                  .then(data => {
+                      alert(data.message || data.error);
+                      window.location.reload();
+                  });
+    }
+}
     </script>
 </body>
 </html>

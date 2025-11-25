@@ -136,16 +136,25 @@
             event.preventDefault();
             const lab_id = document.getElementById('lab_id').value;
             const criteria = [];
+            let totalScore = 0;
             document.querySelectorAll('#criteria-container .criterion-row').forEach(criterion => {
                 const inputs = criterion.querySelectorAll('input, select');
+                const score = parseInt(inputs[4].value);
                 criteria.push({
                     type: inputs[0].value,
                     key: inputs[1].value,
                     expected: inputs[2].value,
                     description: inputs[3].value,
-                    score: parseInt(inputs[4].value)
+                    score: score
                 });
+                totalScore += score;
             });
+
+            // Validasi < 100
+            if (totalScore > 100) {
+                alert("Total score tidak boleh lebih dari 100! (Total sekarang: " + totalScore + ")");
+                return;
+            }
 
             const data = {
                 lab_id: lab_id,
@@ -154,7 +163,7 @@
 
             fetch('/create_scheme', {
                 method: 'POST',
-                headers: {
+            	    headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)

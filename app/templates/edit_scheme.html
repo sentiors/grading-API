@@ -81,35 +81,85 @@
             </div>
         </form>
     </div>
-    <script>
-        // Inject expected options per type (from Jinja)
-        const expectedOptions = {
-            {% for type in types %}
-                "{{ type }}": {{ expected[type] | tojson }},
-            {% endfor %}
+<script>
+    // Inject expected options per type (from Jinja)
+    const expectedOptions = {
+        {% for type in types %}
+            "{{ type }}": {{ expected[type] | tojson }},
+        {% endfor %}
+    };
+
+    function addCriterion() {
+        const container = document.getElementById('criteria-container');
+        const types = `{% for type in types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}`;
+        const expectedInitial = `{% for exp in expected[types[0]] %}<option value="{{ exp }}">{{ exp }}</option>{% endfor %}`;
+        const row = document.createElement('div');
+        row.classList.add('criterion-row');
+        row.innerHTML = `
+            <select name="type" class="form-select w-auto" required onchange="updateExpected(this)">
+                ${types}
+            </select>
+            <input type="text" name="key" class="form-control" required>
+            <select name="expected" class="form-select w-auto" required>
+                ${expectedInitial}
+            </select>
+            <input type="text" name="description" class="form-control" required>
+            <input type="number" name="score" class="form-control" required>
+            <button type="button" class="btn btn-remove" onclick="removeRow(this)">Remove</button>
+        `;
+        container.appendChild(row);
+    }
+
+    function updateExpected(select) {
+        const selectedType = select.value;
+        const expectedSelect = select.parentElement.querySelector('select[name="expected"]');
+        expectedSelect.innerHTML = '';
+        if (expectedOptions[selectedType]) {
+            expectedOptions[selectedType].forEach(function(exp) {
+                const opt = document.createElement('option');
+                opt.value = exp;
+                opt.textContent = exp;
+                expectedSelect.appendChild(opt);
+            });
+        }
+    }
+
+    function removeRow(button) {
+        button.parentElement.remove();
+    }
+
+    document.getElementById('editForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const criteria = [];
+        document.querySelectorAll('#criteria-container .criterion-row').forEach(criterion => {
+            const inputs = criterion.querySelectorAll('input, select');
+            criteria.push({
+                type: inputs[0].value,
+                key: inputs[1].value,
+                expected: inputs[2].value,
+                description: inputs[3].value,
+                score: parseInt(inputs[4].value)
+            });
+        });
+
+        const data = {
+            lab_id: "{{ scheme.lab_id }}",
+            criteria: criteria
         };
 
-        function addCriterion() {
-            const container = document.getElementById('criteria-container');
-            const types = `{% for type in types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}`;
-            const expectedInitial = `{% for exp in expected[types[0]] %}<option value="{{ exp }}">{{ exp }}</option>{% endfor %}`;
-            const row = document.createElement('div');
-            row.classList.add('criterion-row');
-            row.innerHTML = `
-                <select name="type" class="form-select w-auto" required onchange="updateExpected(this)">
-                    ${types}
-                </select>
-                <input type="text" name="key" class="form-control" required>
-                <select name="expected" class="form-select w-auto" required>
-                    ${expectedInitial}
-                </select>
-                <input type="text" name="description" class="form-control" required>
-                <input type="number" name="score" class="form-control" required>
-                <button type="button" class="btn btn-remove" onclick="removeRow(this)">Remove</button>
-            `;
-            container.appendChild(row);
-        }
-
-        function updateExpected(select) {
-            const selectedType = select.value;
-            const expectedSelect = select.parentElement.querySelector('select[name="expected"]');
+        fetch('/edit_scheme/{{ scheme.lab_id }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => response.json())
+          .then(data => {
+              alert(data.message || data.error);
+              // Redirect ke halaman scheme editor
+              window.location.href = "/"; // atau "/scheme_editor", sesuai route index daftar scheme
+          }).catch(err => {
+              alert("Error menyimpan data!");
+          });
+    });
+</script>
