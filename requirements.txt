@@ -1,0 +1,6 @@
+gunicorn
+flask
+flask
+gunicorn
+pytz
+sqlalchemy

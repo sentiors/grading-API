@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    container_name: grading-web
+    ports:
+      - "8000:8000"        # host:container
+    volumes:
+      - ./db.sqlite:/opt/grading/db.sqlite   # pakai file db dari host
+      - ./logs:/opt/grading/logs            # kalau mau log keluar ke host
+    restart: unless-stopped

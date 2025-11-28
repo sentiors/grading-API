@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify, render_template, make_response 
 import os
 import json
-from database import db_session, init_db
-from models import User, Lab, GradingResult
+from .database import db_session, init_db
+from .models import User, Lab, GradingResult
 from datetime import datetime
 import pytz
 wib = pytz.timezone("Asia/Jakarta")
@@ -485,7 +485,15 @@ def get_users_and_labs():
     try:
         # Ambil semua user dari tabel users
         users = db_session.query(User).all()
-        user_list = [{"username": user.username, "class_name": user.class_name} for user in users]
+        user_list = [
+            {
+                "username": user.username,
+                "class_name": user.class_name,
+                "name": user.name,
+                "group_name": user.group_name
+            }
+            for user in users
+        ]
 
         # Ambil semua lab dari tabel labs
         labs = db_session.query(Lab).all()
@@ -509,6 +517,7 @@ def show_results():
     try:
         class_name = request.args.get("class_name")
         lab_id = request.args.get("lab_id")
+        search_name = request.args.get("search_name")
         page = int(request.args.get("page", 1))
         per_page = 10
 
@@ -517,12 +526,17 @@ def show_results():
         labs = db_session.query(Lab).all()
 
         # Ambil data dari tabel grading_results dengan filter
-        query = db_session.query(GradingResult)
+        query = (
+            db_session.query(GradingResult)
+            .join(User, User.username == GradingResult.username)
+        )
 
         if class_name:
             query = query.filter(GradingResult.class_name == class_name)
         if lab_id:
             query = query.filter(GradingResult.lab_id == lab_id)
+        if search_name:
+            query = query.filter(User.name.ilike(f"%{search_name}%"))
 
         total_results = query.count()
         results = query.offset((page - 1) * per_page).limit(per_page).all()
@@ -547,6 +561,7 @@ def show_results():
             users_not_started_lab=users_not_started_lab,
             class_name=class_name,
             lab_id=lab_id,
+            search_name=search_name,
             page=page,
             total_pages=(total_results + per_page - 1) // per_page
         )

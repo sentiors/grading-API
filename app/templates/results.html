@@ -123,10 +123,13 @@
                 <option value="">Select Lab</option>
                 <!-- Daftar lab_id akan diisi oleh JavaScript -->
             </select>
+            <select name="search_name" id="search_name">
+                <option value="">Select Name</option>
+                <!-- Daftar lab_id akan diisi oleh JavaScript -->
+            </select>
             <button type="submit">Filter</button>
         </form>
-
-        <h2>Users Who Have Started Lab</h2>
+	
         <table>
             <thead>
                 <tr>
@@ -168,35 +171,15 @@
                 {% endfor %}
             </tbody>
         </table>
-        <a href="/download-results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}" download="grading_results.csv" class="btn-download">Download Results as CSV</a>
-
-        <h2>Users Who Have Not Started Lab</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Class Name</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users_not_started_lab %}
-                    <tr>
-                        <td>{{ user }}</td>
-                        <td>{{ users | selectattr('username', 'equalto', user) | map(attribute='class_name') | first }}</td>
-                        <td><span style="color: red;">Not Started</span></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <a href="/download-results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}&search_name={{ search_name or '' }}" download="grading_results.csv" class="btn-download">Download Results as CSV</a>
 
         <div class="pagination">
             {% if page > 1 %}
-                <a href="/results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}&page={{ page - 1 }}" class="btn">Previous</a>
+                <a href="/results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}&search_name={{ search_name or '' }}&page={{ page - 1 }}" class="btn">Previous</a>
             {% endif %}
             <span>Page {{ page }} of {{ total_pages }}</span>
             {% if page < total_pages %}
-                <a href="/results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}&page={{ page + 1 }}" class="btn">Next</a>
+                <a href="/results?class_name={{ class_name or '' }}&lab_id={{ lab_id or '' }}&search_name={{ search_name or '' }}&page={{ page + 1 }}" class="btn">Next</a>
             {% endif %}
         </div>
     </div>
@@ -237,6 +220,28 @@
                 option.textContent = lab.lab_id;
                 labSelect.appendChild(option);
             });
+
+            // NEW: dropdown user by NAME (unik)
+            const userSelect = document.getElementById('search_name');
+            const userMap = new Map();
+
+            data.users.forEach(user => {
+                const displayName = (user.name || '').trim();   // pakai field "name"
+                if (!displayName) return;
+                const key = displayName.toLowerCase();
+                if (!userMap.has(key)) userMap.set(key, displayName);
+            });
+
+            userMap.forEach((displayName, key) => {
+                const option = document.createElement('option');
+                option.value = displayName;       // kirim nama ke backend
+                option.textContent = displayName; // tampil di dropdown
+                if ("{{ search_name or '' }}" === displayName) {
+                    option.selected = true;
+                }
+                userSelect.appendChild(option);
+            });
+
         }
 
         // Panggil fungsi fetchFilters saat halaman dimuat
@@ -266,6 +271,7 @@
         function resetFilters() {
             document.getElementById('class_name').value = '';
             document.getElementById('lab_id').value = '';
+            document.getElementById('search_name').value = '';
             window.location.href = '/results';  // Reload halaman tanpa filter
         }
     </script>
